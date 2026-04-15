@@ -1,4 +1,3 @@
--- Защита от двойного запуска
 if getgenv().EwasionScriptLoaded then
     warn("Скрипт уже запущен!") 
     return 
@@ -28,7 +27,7 @@ local Window = Rayfield:CreateWindow({
 local MainTab = Window:CreateTab("Главная", 4483362458) 
 
 -- ================================
--- 1. АВТО-РОЛЛ
+-- 1. АВТО-РОЛЛ (ОТБАЛАНСИРОВАН)
 -- ================================
 MainTab:CreateToggle({
     Name = "Моментальный Auto Roll",
@@ -42,7 +41,8 @@ MainTab:CreateToggle({
                     pcall(function()
                         game:GetService("ReplicatedStorage").Communication.DoRoll:InvokeServer()
                     end)
-                    task.wait(0.1) 
+                    -- УВЕЛИЧИЛИ ДИЛЕЙ, чтобы не душить сеть роблокса
+                    task.wait(0.4) 
                 end
             end)
         end
@@ -62,11 +62,12 @@ MainTab:CreateToggle({
             task.spawn(function()
                 while getgenv().AutoClick do
                     pcall(function()
-                        local playerPlot = workspace.Plots:FindFirstChild(LocalPlayer.Name)
+                        -- Ищем плот (на всякий случай по Name и DisplayName)
+                        local playerPlot = workspace.Plots:FindFirstChild(LocalPlayer.Name) or workspace.Plots:FindFirstChild(LocalPlayer.DisplayName)
+                        
                         if playerPlot and playerPlot:FindFirstChild("Tiles") then
                             local clickRemote = game:GetService("ReplicatedStorage").Communication.ClickPlant
                             
-                            -- Перебираем все координаты (X: от -13 до 1, Y: от 0 до 17)
                             for x = -13, 1 do
                                 for y = 0, 17 do
                                     local tileName = tostring(x) .. "_" .. tostring(y)
@@ -79,7 +80,7 @@ MainTab:CreateToggle({
                             end
                         end
                     end)
-                    task.wait(0.5) -- Задержка между кругами, чтобы не кикнуло за спам ремутами
+                    task.wait(0.5) 
                 end
             end)
         end
@@ -87,10 +88,7 @@ MainTab:CreateToggle({
 })
 
 -- ================================
--- 3. АВТО-ПОКУПКА СЕМЯН
--- ================================
--- ================================
--- 3. АВТО-ПОКУПКА СЕМЯН (ОБНОВЛЕННАЯ С ДЕБАГОМ)
+-- 3. АВТО-ПОКУПКА СЕМЯН (ОТБАЛАНСИРОВАНА)
 -- ================================
 local SeedList = {
     "Strawberry", "Carrot", "Tomato", "Corn", "Blueberry", 
@@ -116,25 +114,16 @@ local function GetTextsFromStump(stump)
         if model then
             local display = model:FindFirstChild("BuyableDisplay")
             if display then
-                -- Ищем все тексты внутри дисплея
                 for _, obj in pairs(display:GetDescendants()) do
-                    if obj:IsA("TextLabel") or obj:IsA("TextButton") then
-                        if obj.Text and obj.Text ~= "" and obj.Text ~= "Label" then
-                            table.insert(texts, obj.Text)
-                        end
+                    if (obj:IsA("TextLabel") or obj:IsA("TextButton")) and obj.Text and obj.Text ~= "" and obj.Text ~= "Label" then
+                        table.insert(texts, obj.Text)
                     end
                 end
-                
-                -- Если сам Title - это 3D текст или SurfaceGui, попробуем вытащить так
                 local title = display:FindFirstChild("Title")
                 if title and title:IsA("TextLabel") then
                     table.insert(texts, title.Text)
                 end
-            else
-                print("[Дебаг] У пня", stump.Name, "нет BuyableDisplay!")
             end
-        else
-            print("[Дебаг] У пня", stump.Name, "нет Model!")
         end
     end
     return texts
@@ -149,51 +138,29 @@ MainTab:CreateToggle({
         if getgenv().AutoBuy then
             task.spawn(function()
                 while getgenv().AutoBuy do
-                    print("[Дебаг] --- НОВЫЙ КРУГ ПОИСКА ---")
-                    
-                    -- Пробуем найти плот по Username
-                    local playerPlot = workspace.Plots:FindFirstChild(LocalPlayer.Name)
-                    
-                    -- Если не нашли, пробуем по DisplayName
-                    if not playerPlot then
-                        playerPlot = workspace.Plots:FindFirstChild(LocalPlayer.DisplayName)
-                    end
-                    
-                    if playerPlot then
-                        print("[Дебаг] Плот успешно найден:", playerPlot.Name)
-                        local BuyRemote = game:GetService("ReplicatedStorage").Communication.BuySeeds
+                    pcall(function()
+                        local playerPlot = workspace.Plots:FindFirstChild(LocalPlayer.Name) or workspace.Plots:FindFirstChild(LocalPlayer.DisplayName)
                         
-                        -- Проверяем 8 пней
-                        for i = 1, 8 do
-                            local stumpName = "Stump_" .. tostring(i)
-                            local stump = playerPlot:FindFirstChild(stumpName)
+                        if playerPlot then
+                            local BuyRemote = game:GetService("ReplicatedStorage").Communication.BuySeeds
                             
-                            if stump then
+                            for i = 1, 8 do
+                                local stump = playerPlot:FindFirstChild("Stump_" .. tostring(i))
                                 local stumpTexts = GetTextsFromStump(stump)
-                                if #stumpTexts > 0 then
-                                    print("[Дебаг]", stumpName, "вижу тексты:", table.concat(stumpTexts, " | "))
-                                    
-                                    for _, textOnDisplay in pairs(stumpTexts) do
-                                        for _, chosenSeed in pairs(getgenv().SelectedSeeds) do
-                                            if string.find(string.lower(textOnDisplay), string.lower(chosenSeed)) then
-                                                print("[Дебаг] >>> СОВПАДЕНИЕ! Покупаю", chosenSeed, "на пне", i)
-                                                BuyRemote:FireServer(i)
-                                            end
+                                
+                                for _, textOnDisplay in pairs(stumpTexts) do
+                                    for _, chosenSeed in pairs(getgenv().SelectedSeeds) do
+                                        if string.find(string.lower(textOnDisplay), string.lower(chosenSeed)) then
+                                            -- Моментально покупаем при совпадении
+                                            BuyRemote:FireServer(i)
                                         end
                                     end
-                                else
-                                    print("[Дебаг]", stumpName, "- текстов не найдено.")
                                 end
-                            else
-                                print("[Дебаг] ОШИБКА: Не могу найти", stumpName, "в плоте!")
                             end
                         end
-                    else
-                        print("[Дебаг] КРИТИЧЕСКАЯ ОШИБКА: Плот игрока НЕ НАЙДЕН!")
-                        print("[Дебаг] Мой Name:", LocalPlayer.Name, "| Мой DisplayName:", LocalPlayer.DisplayName)
-                    end
-                    
-                    task.wait(2) -- Задержка 2 секунды, чтобы не спамить консоль слишком жестко
+                    end)
+                    -- УМЕНЬШИЛИ ДИЛЕЙ, чтобы скан пней летал со скоростью света
+                    task.wait(0.15) 
                 end
             end)
         end
@@ -202,7 +169,7 @@ MainTab:CreateToggle({
 
 Rayfield:Notify({
     Title = "Ewasion Hub загружен",
-    Content = "Все функции готовы к работе!",
+    Content = "Задержки оптимизированы. Погнали!",
     Duration = 3,
     Image = 4483362458,
 })
