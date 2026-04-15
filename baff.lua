@@ -41,6 +41,29 @@ local Window = Rayfield:CreateWindow({
 -- Создаем вкладку
 local MainTab = Window:CreateTab("Главная", 4483362458) 
 
+MainTab:CreateToggle({
+    Name = "Моментальный Auto Roll",
+    CurrentValue = false,
+    Flag = "AutoRollToggle",
+    Callback = function(Value)
+        getgenv().AutoRoll = Value
+        
+        if getgenv().AutoRoll then
+            task.spawn(function()
+                while getgenv().AutoRoll do
+                    -- pcall защищает скрипт от краша, если сервер выдаст ошибку
+                    local success, err = pcall(function()
+                        game:GetService("ReplicatedStorage").Communication.DoRoll:InvokeServer()
+                    end)
+                    
+                    -- Небольшая задержка, чтобы не нагружать твой ПК и пинг
+                    task.wait(0.1) 
+                end
+            end)
+        end
+    end,
+})
+
 MainTab:CreateDropdown({
     Name = "Выбрать семя для автопокупки",
     Options = SeedList,
