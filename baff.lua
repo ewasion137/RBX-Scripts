@@ -41,6 +41,8 @@ MainTab:CreateToggle({
                     pcall(function()
                         game:GetService("ReplicatedStorage").Communication.DoRoll:InvokeServer()
                     end)
+                    -- УВЕЛИЧИЛИ ДИЛЕЙ, чтобы не душить сеть роблокса
+                    task.wait(0.3) 
                 end
             end)
         end
@@ -78,6 +80,7 @@ MainTab:CreateToggle({
                             end
                         end
                     end)
+                    task.wait(0.1) 
                 end
             end)
         end
@@ -156,6 +159,7 @@ MainTab:CreateToggle({
                             end
                         end
                     end)
+                    task.wait(0.05) 
                 end
             end)
         end
