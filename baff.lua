@@ -89,6 +89,9 @@ MainTab:CreateToggle({
 -- ================================
 -- 3. АВТО-ПОКУПКА СЕМЯН
 -- ================================
+-- ================================
+-- 3. АВТО-ПОКУПКА СЕМЯН (ОБНОВЛЕННАЯ С ДЕБАГОМ)
+-- ================================
 local SeedList = {
     "Strawberry", "Carrot", "Tomato", "Corn", "Blueberry", 
     "Potato", "Sugarcane", "Watermelon", "Blackberry", 
@@ -103,21 +106,22 @@ MainTab:CreateDropdown({
     Flag = "SeedDrop",
     Callback = function(Options)
         getgenv().SelectedSeeds = Options
+        print("[Дебаг] Выбраны семена:", table.concat(Options, ", "))
     end,
 })
 
-local function CheckStumpForSeed(stump)
+-- Новая, пуленепробиваемая функция поиска текста
+local function GetTextsFromStump(stump)
+    local texts = {}
     if stump and stump:FindFirstChild("Model") and stump.Model:FindFirstChild("BuyableDisplay") then
-        local title = stump.Model.BuyableDisplay:FindFirstChild("Title")
-        if title then
-            for _, obj in pairs(title:GetDescendants()) do
-                if (obj:IsA("TextLabel") or obj:IsA("StringValue")) and obj.Text then
-                    return obj.Text
-                end
+        -- Ищем вообще ВСЕ текстовые лейблы внутри BuyableDisplay
+        for _, obj in pairs(stump.Model.BuyableDisplay:GetDescendants()) do
+            if obj:IsA("TextLabel") and obj.Text and obj.Text ~= "" then
+                table.insert(texts, obj.Text)
             end
         end
     end
-    return ""
+    return texts
 end
 
 MainTab:CreateToggle({
@@ -134,21 +138,26 @@ MainTab:CreateToggle({
                         if playerPlot then
                             local BuyRemote = game:GetService("ReplicatedStorage").Communication.BuySeeds
                             
-                            -- Проверяем 8 пней
+                            -- Сканируем 8 пней
                             for i = 1, 8 do
                                 local stump = playerPlot:FindFirstChild("Stump_" .. tostring(i))
-                                local textOnDisplay = CheckStumpForSeed(stump)
+                                local stumpTexts = GetTextsFromStump(stump)
                                 
-                                for _, chosenSeed in pairs(getgenv().SelectedSeeds) do
-                                    if string.find(textOnDisplay, chosenSeed) then
-                                        -- Покупаем! Отправляем серверу только номер пня (i)
-                                        BuyRemote:FireServer(i)
+                                -- Если пень найден и текст считан, проверяем совпадения
+                                for _, textOnDisplay in pairs(stumpTexts) do
+                                    for _, chosenSeed in pairs(getgenv().SelectedSeeds) do
+                                        -- Переводим в нижний регистр для надежности (Strawberry == strawberry)
+                                        if string.find(string.lower(textOnDisplay), string.lower(chosenSeed)) then
+                                            print("[Дебаг] НАШЕЛ!", chosenSeed, "на пне", i, "Текст:", textOnDisplay)
+                                            -- Отправляем запрос
+                                            BuyRemote:FireServer(i)
+                                        end
                                     end
                                 end
                             end
                         end
                     end)
-                    task.wait(1) -- Сканируем магазин раз в секунду
+                    task.wait(1)
                 end
             end)
         end
