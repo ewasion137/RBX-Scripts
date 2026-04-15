@@ -45,9 +45,13 @@ MainTab:CreateToggle({
         if getgenv().AutoRoll then
             task.spawn(function()
                 while getgenv().AutoRoll do
-                    task.wait() -- задержка, чтобы не крашнуть игру
-                    -- СЮДА ВСТАВИМ ТВОЙ REMOTE EVENT ДЛЯ РОЛЛА, когда найдешь
-                    -- Пример: game:GetService("ReplicatedStorage").RollRemote:FireServer()
+                    -- pcall защищает скрипт от краша, если сервер выдаст ошибку
+                    local success, err = pcall(function()
+                        game:GetService("ReplicatedStorage").Communication.DoRoll:InvokeServer()
+                    end)
+                    
+                    -- Небольшая задержка, чтобы не нагружать твой ПК и пинг
+                    task.wait(0.1) 
                 end
             end)
         end
