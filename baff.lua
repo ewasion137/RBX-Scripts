@@ -56,7 +56,7 @@ MainTab:CreateToggle({
                             end
                         end
                     end)
-                    task.wait(0.3) 
+                    task.wait(0.1) 
                 end
             end)
         end
