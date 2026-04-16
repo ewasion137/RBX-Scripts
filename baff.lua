@@ -153,13 +153,29 @@ MainTab:CreateDropdown({
     MultipleOptions = false,
     Flag = "StopRollDrop",
     Callback = function(Option)
-        -- Rayfield отдает массив даже если MultipleOptions = false, поэтому берем Option[1]
+        -- Берем выбранное значение
         getgenv().StopRollSeed = type(Option) == "table" and Option[1] or Option
     end,
 })
 
 -- Переменная для тумблера, чтобы скрипт мог его сам отключить
+local function FindStringInTable(tbl, searchStr)
+    for _, value in pairs(tbl) do
+        if type(value) == "string" then
+            if string.find(string.lower(value), string.lower(searchStr)) then
+                return true
+            end
+        elseif type(value) == "table" then
+            if FindStringInTable(value, searchStr) then
+                return true
+            end
+        end
+    end
+    return false
+end
+
 local AutoRollToggle 
+getgenv().HasDumpedTable = false -- Флаг, чтобы не спамить в консоль
 
 AutoRollToggle = MainTab:CreateToggle({
     Name = "Auto Roll",
@@ -170,34 +186,45 @@ AutoRollToggle = MainTab:CreateToggle({
         if getgenv().AutoRoll then
             task.spawn(function()
                 while getgenv().AutoRoll do
-                    -- Ловим то, что сервер нам отвечает
                     local success, rollResult = pcall(function()
                         return game:GetService("ReplicatedStorage").Communication.DoRoll:InvokeServer()
                     end)
                     
-                    if success then
-                        -- Выводим в F9, чтобы понять, какой формат у ответа
-                        print("[Дебаг Ролла] Выпало:", tostring(rollResult))
+                    if success and rollResult then
+                        local foundMatch = false
                         
-                        -- Если сервер прислал название (строку)
-                        if rollResult and type(rollResult) == "string" then
-                            -- Сравниваем в нижнем регистре
-                            if string.find(string.lower(rollResult), string.lower(getgenv().StopRollSeed)) then
-                                print("🎉 УРА! ВЫПАЛО:", getgenv().StopRollSeed, "- СТОПАЕМ РОЛЛ!")
-                                
-                                -- Выключаем цикл
-                                getgenv().AutoRoll = false
-                                -- Визуально отключаем тумблер в менюшке
-                                AutoRollToggle:Set(false)
-                                
-                                -- Красивая уведомлялка
-                                Rayfield:Notify({
-                                    Title = "ДЖЕКПОТ! 🎯",
-                                    Content = "Авто-ролл остановлен! Выпало: " .. getgenv().StopRollSeed,
-                                    Duration = 10,
-                                    Image = 4483362458,
-                                })
+                        -- Если сервер прислал ТАБЛИЦУ (как на твоем скрине)
+                        if type(rollResult) == "table" then
+                            -- Выводим структуру таблицы один раз в консоль, чтобы посмотреть, что внутри
+                            if not getgenv().HasDumpedTable then
+                                pcall(function()
+                                    local json = game:GetService("HttpService"):JSONEncode(rollResult)
+                                    print("[Дебаг Ролла] Внутри таблицы лежит:", json)
+                                end)
+                                getgenv().HasDumpedTable = true
                             end
+                            
+                            -- Ищем название внутри таблицы
+                            foundMatch = FindStringInTable(rollResult, getgenv().StopRollSeed)
+                            
+                        -- Если сервер прислал просто СТРОКУ
+                        elseif type(rollResult) == "string" then
+                            foundMatch = string.find(string.lower(rollResult), string.lower(getgenv().StopRollSeed)) ~= nil
+                        end
+                        
+                        -- Если нашли то, что искали
+                        if foundMatch then
+                            print("🎉 УРА! ВЫПАЛО:", getgenv().StopRollSeed, "- СТОПАЕМ РОЛЛ!")
+                            
+                            getgenv().AutoRoll = false
+                            AutoRollToggle:Set(false) -- Визуально отключаем тумблер
+                            
+                            Rayfield:Notify({
+                                Title = "ДЖЕКПОТ! 🎯",
+                                Content = "Авто-ролл остановлен! Выпало: " .. getgenv().StopRollSeed,
+                                Duration = 10,
+                                Image = 4483362458,
+                            })
                         end
                     end
                     
@@ -207,6 +234,7 @@ AutoRollToggle = MainTab:CreateToggle({
         end
     end,
 })
+
 
 MainTab:CreateSlider({
     Name = "Задержка ролла (сек)",
