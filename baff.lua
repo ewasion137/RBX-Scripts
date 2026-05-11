@@ -71,7 +71,7 @@ MainTab:CreateToggle({
 local SeedList = {
     "Strawberry", "Carrot", "Tomato", "Corn", "Blueberry", 
     "Potato", "Sugarcane", "Watermelon", "Blackberry", 
-    "Beet", "Kiwi", "Pineapple", "Prickly Pear"
+    "Beet", "Kiwi", "Pineapple", "Prickly Pear", "Dragonfruit"
 }
 
 MainTab:CreateDropdown({
